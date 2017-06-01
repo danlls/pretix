@@ -30,6 +30,7 @@ from pretix.base.services.invoices import (
 )
 from pretix.base.services.locking import LockTimeoutException
 from pretix.base.services.mail import SendMailException, mail
+from pretix.base.services.pricing import get_price
 from pretix.base.signals import (
     order_paid, order_placed, periodic_task, register_payment_providers,
 )
@@ -217,7 +218,7 @@ def _check_positions(event: Event, now_dt: datetime, positions: List[CartPositio
             err = err or error_messages['unavailable']
             cp.delete()
             continue
-        quotas = list(cp.item.quotas.all()) if cp.variation is None else list(cp.variation.quotas.all())
+        quotas = list(cp.quotas)
 
         products_seen[cp.item] += 1
         if cp.item.max_per_order and products_seen[cp.item] > cp.item.max_per_order:
@@ -252,8 +253,7 @@ def _check_positions(event: Event, now_dt: datetime, positions: List[CartPositio
             # Other checks are not necessary
             continue
 
-        price = cp.item.default_price if cp.variation is None else (
-            cp.variation.default_price if cp.variation.default_price is not None else cp.item.default_price)
+        price = get_price(cp.item, cp.variation, cp.voucher, cp.price, cp.subevent, custom_price_is_net=False)
 
         if price is False or len(quotas) == 0:
             err = err or error_messages['unavailable']
@@ -265,7 +265,6 @@ def _check_positions(event: Event, now_dt: datetime, positions: List[CartPositio
                 err = err or error_messages['voucher_expired']
                 cp.delete()
                 continue
-            price = cp.voucher.calculate_price(price)
 
         if price != cp.price and not (cp.item.free_price and cp.price > price):
             positions[i] = cp
@@ -518,8 +517,11 @@ class OrderChangeManager:
         if price is None:
             raise OrderError(self.error_messages['product_invalid'])
         self._totaldiff = price - position.price
-        self._quotadiff.update(variation.quotas.all() if variation else item.quotas.all())
-        self._quotadiff.subtract(position.variation.quotas.all() if position.variation else position.item.quotas.all())
+        # TODO: Subevent might change
+        self._quotadiff.update(variation.quotas.filter(subevent=position.subevent)
+                               if variation
+                               else item.quotas.filter(subevent=position.subevent))
+        self._quotadiff.subtract(position.quotas)
         self._operations.append(self.ItemOperation(position, item, variation, price))
 
     def change_price(self, position: OrderPosition, price: Decimal):
@@ -528,7 +530,7 @@ class OrderChangeManager:
 
     def cancel(self, position: OrderPosition):
         self._totaldiff = -position.price
-        self._quotadiff.subtract(position.variation.quotas.all() if position.variation else position.item.quotas.all())
+        self._quotadiff.subtract(position.quotas)
         self._operations.append(self.CancelOperation(position))
 
     def add_position(self, item: Item, variation: ItemVariation, price: Decimal, addon_to: Order):
