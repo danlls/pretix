@@ -35,7 +35,6 @@ class OrderSearch(ListView):
                 | Q(invoice_address__name__icontains=u)
                 | Q(invoice_address__company__icontains=u)
             )
-            print(qs.query)
 
         if self.request.GET.get("ordering", "") != "":
             p = self.request.GET.get("ordering", "")
