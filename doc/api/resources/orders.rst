@@ -71,6 +71,7 @@ tax_rate                              decimal (string)           VAT rate applie
 tax_value                             money (string)             VAT included in this position
 secret                                string                     Secret code printed on the tickets for validation
 addon_to                              integer                    Internal ID of the position this position is an add-on for (or ``null``)
+subevent                              integer                    ID of the sub-event this position belongs to (or ``null``).
 checkins                              list of objects            List of check-ins with this ticket
 └ datetime                            datetime                   Time of check-in
 downloads                             list of objects            List of ticket download options
@@ -147,6 +148,7 @@ Order endpoints
                 "tax_value": "0.00",
                 "secret": "z3fsn8jyufm5kpk768q69gkbyr5f4h6w",
                 "addon_to": null,
+                "subevent": null,
                 "checkins": [
                   {
                     "datetime": "2017-12-25T12:45:23Z"
@@ -243,6 +245,7 @@ Order endpoints
             "tax_value": "0.00",
             "secret": "z3fsn8jyufm5kpk768q69gkbyr5f4h6w",
             "addon_to": null,
+            "subevent": null,
             "checkins": [
               {
                 "datetime": "2017-12-25T12:45:23Z"
@@ -354,6 +357,7 @@ Order position endpoints
             "tax_value": "0.00",
             "secret": "z3fsn8jyufm5kpk768q69gkbyr5f4h6w",
             "addon_to": null,
+            "subevent": null,
             "checkins": [
               {
                 "datetime": "2017-12-25T12:45:23Z"
@@ -382,6 +386,7 @@ Order position endpoints
    :query string order__status: Only return positions with the given order status.
    :query bollean has_checkin: If set to ``true`` or ``false``, only return positions that have or have not been
                                checked in already.
+   :query integer subevent: Only return positions of the sub-event with the given ID
    :query integer addon_to: Only return positions that are add-ons to the position with the given ID.
    :param organizer: The ``slug`` field of the organizer to fetch
    :param event: The ``slug`` field of the event to fetch
@@ -423,6 +428,7 @@ Order position endpoints
         "tax_value": "0.00",
         "secret": "z3fsn8jyufm5kpk768q69gkbyr5f4h6w",
         "addon_to": null,
+        "subevent": null,
         "checkins": [
           {
             "datetime": "2017-12-25T12:45:23Z"
