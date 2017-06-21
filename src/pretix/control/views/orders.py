@@ -16,6 +16,7 @@ from pretix.base.models import (
     CachedFile, CachedTicket, Invoice, InvoiceAddress, Item, ItemVariation,
     Order, Quota, generate_position_secret, generate_secret,
 )
+from pretix.base.models.event import SubEvent
 from pretix.base.services.export import export
 from pretix.base.services.invoices import (
     generate_cancellation, generate_invoice, invoice_pdf, invoice_qualified,
@@ -69,6 +70,9 @@ class OrderList(EventPermissionRequiredMixin, ListView):
         if self.request.GET.get("item", "") != "":
             i = self.request.GET.get("item", "")
             qs = qs.filter(positions__item_id__in=(i,))
+        if self.request.GET.get("subevent", "") != "":
+            i = self.request.GET.get("subevent", "")
+            qs = qs.filter(positions__subevent_id__in=(i,))
         if self.request.GET.get("provider", "") != "":
             p = self.request.GET.get("provider", "")
             qs = qs.filter(payment_provider=p)
@@ -94,7 +98,8 @@ class OrderList(EventPermissionRequiredMixin, ListView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx['items'] = Item.objects.filter(event=self.request.event)
-        ctx['filtered'] = ("status" in self.request.GET or "item" in self.request.GET or "user" in self.request.GET or "provider" in self.request.GET)
+        ctx['filtered'] = ("status" in self.request.GET or "item" in self.request.GET or "user" in self.request.GET
+                           or "provider" in self.request.GET or "subevent" in self.request.GET)
         ctx['providers'] = self.get_payment_providers()
         return ctx
 
@@ -635,7 +640,19 @@ class OverView(EventPermissionRequiredMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data()
-        ctx['items_by_category'], ctx['total'] = order_overview(self.request.event)
+
+        subevent = None
+        if self.request.GET.get("subevent", "") != "" and self.request.event.has_subevents:
+            i = self.request.GET.get("subevent", "")
+            try:
+                subevent = self.request.event.subevents.get(pk=i)
+            except SubEvent.DoesNotExist:
+                pass
+
+        ctx['items_by_category'], ctx['total'] = order_overview(self.request.event, subevent=subevent)
+        ctx['subevent_warning'] = self.request.event.has_subevents and subevent and (
+            self.request.event.orders.filter(payment_fee__gt=0).exists()
+        )
         return ctx
 
 
